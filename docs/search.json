@@ -16,7 +16,7 @@
     "section": "",
     "text": "Readings: Kéry (2010) chapter 7\nMost people wouldn’t think of the simple t-test as a linear model, but that is precisely what it is. In this lesson we will introduce ourselves to specifying linear models in BUGS using this starting point, and we will specify the “t-test model” for equal and unequal variances.",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
@@ -26,7 +26,7 @@
     "section": "3.1 t-test with equal variances",
     "text": "3.1 t-test with equal variances\n\n3.1.1 Introduction\nThe model underlying the t-test with equal variances is:\n\\(y_i = \\alpha + \\beta \\times x_i + \\epsilon_i\\)\n\\(\\epsilon_i \\sim {\\sf Normal}(0, \\sigma^2)\\)\nInterpretation:\n\\(y_i\\): the response, a continuous variable measured for each unit \\(i\\) in the sample\n\\(x_i\\): is an indicator variable for group 2\n\\(\\alpha\\): the mean for group 1\n\\(\\beta\\): the difference between groups 1 and 2\n\\(\\epsilon_i\\): the residuals around the group means\n\\(\\sigma^2\\): the variance of the distribution of the residuals\n\n \n\n\n3.1.2 Data simulation\n\nWe will simulate data based on peregrine falcons that we encountered in an earlier lesson.\nWe’ll imagine that we have wingspan measurements for males and females, that they’re normally distributed, and we’ll assume that the mean and standard deviation are 77.5 and 2.5 cm for males and 105 and 3 cm for females.\n\nn1 &lt;- 60                    # Number of females\nn2 &lt;- 40                    # Number of males\nmu1 &lt;- 105                  # Population mean of females\nmu2 &lt;- 77.5                 # Population mean of males\nsigma &lt;- 2.75               # Average population SD of both\nn &lt;- n1 + n2                # Total sample size\ny1 &lt;- rnorm(n1, mu1, sigma) # Data for females\ny2 &lt;- rnorm(n2, mu2, sigma) # Date for males\ny &lt;- c(y1, y2)              # Aggregate both data sets\nx &lt;- rep(c(0,1), c(n1, n2)) # Indicator for male\n\nggplot() +\n  geom_boxplot(aes(x = as.factor(x), y = y)) +\n  xlab('Male') +\n  ylab('Wingspan (cm)')\nThe method we used to generate these data correspond to a means parameterization. We could also generate a data set in a manner that demonstrates effects parameterization.\nn &lt;- n1 + n2                  # Total sample size\nalpha &lt;- mu1                  # Mean for females serves as the intercept\nbeta &lt;- mu2 - mu1             # Beta is the difference male-female\nE.y &lt;- alpha + beta*x         # Expectation\ny.obs &lt;- rnorm(n = n, mean = E.y, sd = sigma) # Add random variation\n\nggplot() +\n  geom_boxplot(aes(x = as.factor(x), y = y.obs)) +\n  xlab('Male') +\n  ylab('Wingspan (cm)')\nRepeatedly executing this code chunk gives us a sense of the effect of chance (sampling variance or sampling error) on the resulting data, and the differences between repeated realizations of the same random process.\n \n\n\n3.1.3 Classical analysis in R\nTo analyse our simulated data with a linear model in R:\nfit1 &lt;- lm(y ~ x)     # Analysis of first data set\nfit2 &lt;- lm(y.obs ~ x) # Analysis of second data set\n\nsummary(fit1)\nsummary(fit2)\nThe differences between the two analyses are the consequence of sampling variation. To get an ANOVA table for the two models:\nanova(fit1)\nanova(fit2)\nWe can also look at the design matrices:\nmodel.matrix(fit1)\nmodel.matrix(fit2)\n \n\n\n3.1.4 Bayesian analysis with BUGS\nHere is an analysis of the first data set using the Bayesian approach and NIMBLE:\nlibrary(nimble)\n\n# specify the model\nmodel.ttest1 &lt;- nimbleCode({\n  \n  # Priors\n  mu1 ~ dnorm(0, sd = 30)\n  delta ~ dnorm(0, sd = 30)\n  sigma ~ dunif(0, 100)\n  \n  # Likelihood\n  for (i in 1:n) {\n    y[i] ~ dnorm(mu[i], sd = sigma)\n    mu[i] &lt;- mu1 + delta*x[i]\n    residual[i] &lt;- y[i] - mu[i] # define residuals\n  }\n  \n  # D4erived quantities: one of the greatest things about a Bayesian analysis\n  mu2 &lt;- mu1 + delta # Difference in wingspan\n})\nNext we must specify:\n\nthe data\nthe constants\ninitial values\nparameters we want NIMBLE to remember for us\nthe Markov chain Monte Carlo (MCMC) settings\n\nThen we send everything to NIMBLE.\n# data and constants\nmy.data &lt;- list(x = x, y = y)\nmy.consts &lt;- list(n = n)\n\n# initial values\nmy.inits &lt;- function() list(mu1 = rnorm(1), delta = rnorm(1),\n                            sigma = rlnorm(1))\n\n# parameters to estimate\nmy.params &lt;- c('mu1','mu2', 'delta', 'sigma', 'residual')\n\n# MCMC settings\nnc &lt;- 3     # no. chains\nni &lt;- 1000  # no. draws from posterior for each chain\nnb &lt;- 1     # no. draws to discard as burn in\nnt &lt;- 1     # thinning rate\n\n# start Gibbs sampler\nout1 &lt;- nimbleMCMC(code = model.ttest1,\n                   data = my.data,\n                   constants = my.consts,\n                   inits = my.inits,\n                   monitors = my.params,\n                   thin = nt, niter = ni, nburnin = nb, nchains = nc)\n\n# save the summary for graphing\n(outSum1 &lt;- MCMCsummary(out1, round = 2))\nComparison of classical and Bayesian analyses:\n\nMean estimates are almost identical.\nThe residual standard deviation estimate (i.e. residual standard error in classical versus sigma in Bayesian) is slightly larger in the Bayesian analysis. This difference stems from the approximate asymptotic nature of frequentist inference compared to the exact inference under the Bayesian paradigm.\nVery nice feature in Bayesian: derived parameters (mu2) that are functions of underlying parameters plus there uncertainties (mu1 and delta) can be obtained easily using the MCMC posterior samples. Unlike in classical analysis where the delta method would be needed, error from estimation is automatically propagated into functions of parameters.\n\nFurther comments:\n\nThe effective number of parameters to be estimated is three: one variance (sigma) and two means (mu1, mu2).\nBefore we use this or any model for inference we should check that it is adequate. Because we simulated data, the model should be adequate, but with real data we would want to a further assessment with the residuals.\nFor practice, we’ll assess model adequacy with our residuals. One observation is that each residual has its own posterior distribution, which might seem odd. But in Bayesian analysis, each calculated or estimated value (i.e. an unknown) has some degree of uncertainty represented by its posterior distribution.\n\nWe’ll plot the residual against the order of the individual in our data set, then we’ll assess the spread of residuals with box-plots to judge whether the spread is similar:\nggplot() +\n  geom_point(aes(x = 1:100, y = outSum1$mean[4:103])) +\n  geom_hline(yintercept = 0) +\n  xlab('Individual') +\n  ylab('Wingspan residuals (cm)')\nggplot() +\n  geom_boxplot(aes(x = as.factor(x), y = outSum1$mean[4:103])) +\n  geom_hline(yintercept = 0) +\n  xlab('Male') +\n  ylab('Wingspan residuals (cm)')\nNo pattern in the first graph, and the box-plots look similar. No evidence of violations.",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
@@ -36,7 +36,7 @@
     "section": "3.2 t-test with unequal variances",
     "text": "3.2 t-test with unequal variances\n\n3.2.1 Introduction\nWe’re now moving to the situation where variances are unequal between groups, something that is common in real data sets. We can modify the model from the equal-variance situation to accommodate unequal variance as follows:\n\\(y_i = \\alpha + \\beta \\times x_i + \\epsilon_i\\)\n\\(\\epsilon \\sim {\\sf Normal}(0, \\sigma_1^2)\\) when \\(x_i = 0\\) (females)\n\\(\\epsilon \\sim {\\sf Normal}(0, \\sigma_2^2)\\) when \\(x_i = 1\\) (males)\n\n\n\n3.2.2 Data simulation\nHere is the code to simulate data under the heterogeneous group model:\nn1 &lt;- 60                # Number of females\nn2 &lt;- 40                # Number of males\nmu1 &lt;- 105              # Population mean for females\nmu2 &lt;- 77.5             # Population mean for males\nsigma1 &lt;- 3             # Population SD for females\nsigma2 &lt;- 2.5               # Population SD for males\n\nn &lt;- n1 + n2                # Total sample size\ny1 &lt;- rnorm(n1, mu1, sigma1)        # Data for females\ny2 &lt;- rnorm(n2, mu2, sigma2)        # Data for males\ny &lt;- c(y1, y2)              # Aggregate both data sets\nx &lt;- rep(c(0, 1), c(n1, n2))        # Indicator for male\n\nggplot() +\n  geom_boxplot(aes(x = as.factor(x), y = y)) +\n  xlab('Male') +\n  ylab('Wingspan residuals (cm)')\n\n\n3.2.3 Classical analysis in R\nWe can analyse data with heterogeneous variances in the classical paradigm using Welch’s test. This is the default when using the function \\({\\tt t.test}\\):\nt.test(y ~ x)\n\n\n3.2.4 Bayesian analysis with BUGS\nHere we specify the model using BUGS code and NIMBLE.\n# specify the model\nmodel.ttest2 &lt;- nimbleCode({\n  \n  # Priors\n  mu1 ~ dnorm(0, sd = 30)\n  mu2 ~ dnorm(0, sd = 30)\n  sigma1 ~ dunif(0, 1000)\n  sigma2 ~ dunif(0, 1000)\n  \n  # Likelihood\n  for (i in 1:n1){\n    y1[i] ~ dnorm(mu1, sd = sigma1)\n  }\n  \n  for (i in 1:n2){\n    y2[i] ~ dnorm(mu2, sd = sigma2)\n  }\n  \n  # Derived quantities\n  delta &lt;- mu2 - mu1\n})\n\n# data and constants\nmy.data &lt;- list(y1 = y1, y2 = y2)\nmy.consts &lt;- list(n1 = n1, n2 = n2)\n\n# initial values\nmy.inits &lt;- function() list(mu1 = rnorm(1), mu2 = rnorm(1),\n                            sigma1 = rlnorm(1), sigma1 = rlnorm(1))\n\n# parameters to estimate\nmy.params &lt;- c('mu1','mu2', 'delta', 'sigma1', 'sigma2')\n\n# MCMC settings\nnc &lt;- 3     # no. chains\nni &lt;- 2000  # no. draws from posterior for each chain\nnb &lt;- 500   # no. draws to discard as burn in\nnt &lt;- 1     # thinning rate\n\n# start Gibbs sampler\nout2 &lt;- nimbleMCMC(code = model.ttest2,\n                  data = my.data,\n                  constants = my.consts,\n                  inits = my.inits,\n                  monitors = my.params,\n                  thin = nt, niter = ni, nburnin = nb, nchains = nc)\n\n# save the summary for graphing\n(outSum2 &lt;- MCMCsummary(out2, round = 2))\nHeterogeneous group variances are easy to deal with in a Bayesian framework.\n\nIf we wanted to formally test for a differences in variances, we could reparameterise to make one variance equal to the other variance plus a constant to be estimated.\nThis could be done within NIMBLE or in R with the saved Markov chain values for \\(sigma1\\) and \\(sigma2\\) (the latter is often easier).\nIf the posterior distribution covers zero, that could be taken as evidence for a lack of difference.",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
@@ -46,7 +46,7 @@
     "section": "3.3 Summary",
     "text": "3.3 Summary\nAlthough easy to conduct a t-test using the canned R function, building our own in BUGS language has helped us to learn some necessary lessons:\n\nBayesian modelling has flexibility to allow us to accommodate peculiarities of a particular data set (like heterogeneous group variances).\nWe can model not just the mean, but whatever parameter we need to (like sigma) to address a question or objective. We could even use covariates.\nModelling variance is relatively easy in the Bayesian paradigm, whereas in the classical paradigm it can be difficult for anyone but a hard-core statistician.",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
@@ -56,7 +56,7 @@
     "section": "3.4 Example",
     "text": "3.4 Example",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
@@ -66,7 +66,7 @@
     "section": "3.5 Exercises",
     "text": "3.5 Exercises",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
@@ -76,7 +76,7 @@
     "section": "3.6 References",
     "text": "3.6 References\nKéry M (2010) Introduction to WinBUGS for ecologists. Academic Press, London, UK.",
     "crumbs": [
-      "Introduction"
+      "T-test"
     ]
   },
   {
