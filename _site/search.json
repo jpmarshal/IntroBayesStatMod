@@ -1,0 +1,9 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Introduction to Bayesian Statistical Modelling for ecologists",
+    "section": "",
+    "text": "Instructors:\nFitsum Abadi Gebreselassie, New Mexico State University, USA (fgebrese@nmsu.edu)\nJason Marshal, Wits University, South Africa (jason.marshal@wits.ac.za)\nDate: 29–31 October 2025\nTime: 09h00–16h00\nVenue: Wits University, Oppenheimer Life Sciences Building, Room 3034A (Nucleus Lab)\nComputer requirements: Please bring your own laptop with the latest versions of R, RStudio, and JAGS installed\nRegistration: Free\nApplication: Please use the online form to register. The workshop will be limited to 40 participants.\n\nWorkshop Overview\nThis three-day hands-on workshop aims to introduce ecologists to statistical modelling using Bayesian approaches and BUGS programming. The workshop will cover\n\na brief introduction to R software and to BUGS programming conventions using the language JAGS;\nbasic statistical models and their representation in a Bayesian framework, including linear regression, generalized linear models, generalized linear mixed models;\nspecialised models in population ecology and wildlife conservation, such as occupancy modelling, population modelling, and integrated population modelling.\n\nPrerequisites: Basic knowledge of statistics (i.e. familiarity with simple regression) and some prior exposure to R software. No prior experience with Bayesian statistical modelling is required."
+  }
+]

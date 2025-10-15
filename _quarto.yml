@@ -1,0 +1,14 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Introduction to Bayesian Statistical Modelling for ecologists"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+
+format:
+  html:
+    toc: true
